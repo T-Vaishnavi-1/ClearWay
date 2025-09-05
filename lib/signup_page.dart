@@ -1,4 +1,5 @@
 
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,7 +16,6 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
- 
   final _formKey = GlobalKey<FormState>();
 
   late stt.SpeechToText _speech;
@@ -33,13 +33,11 @@ class _SignUpPageState extends State<SignUpPage> {
       TextEditingController();
   final TextEditingController _languageController = TextEditingController();
 
- 
   String? selectedLanguage;
   String? _languageError;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   AutovalidateMode _autoValidate = AutovalidateMode.disabled;
-
 
   final Map<String, String> _langCode = {
     "English": "en",
@@ -67,7 +65,6 @@ class _SignUpPageState extends State<SignUpPage> {
     "Arabic"
   ];
 
- 
   final List<String> _stateSuggestions = [
     "Alabama",
     "Alaska",
@@ -149,8 +146,8 @@ class _SignUpPageState extends State<SignUpPage> {
     "West Bengal",
   ];
 
- 
-  final List<String> _existingUsernames = [ "user123"];
+  
+  final List<String> _existingUsernames = ["user123"];
 
   String generatePassword(int length) {
     const chars =
@@ -161,21 +158,33 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Future<bool> _ensureMicPermission() async {
-    final PermissionStatus status = await Permission.microphone.status;
-    if (status.isGranted) return true;
+    try {
+      final PermissionStatus status = await Permission.microphone.status;
+      if (status.isGranted) return true;
 
-    if (status.isDenied) {
-      final PermissionStatus result = await Permission.microphone.request();
-      return result.isGranted;
-    }
+      if (status.isDenied) {
+        final PermissionStatus result = await Permission.microphone.request();
+        return result.isGranted;
+      }
 
-    if (status.isPermanentlyDenied) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            "Microphone permission permanently denied. Please enable it in settings."),
-      ));
-      await openAppSettings();
-      return false;
+      if (status.isPermanentlyDenied) {
+       
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                "Microphone permission permanently denied. Please enable it in settings."),
+          ));
+        }
+        await openAppSettings();
+        return false;
+      }
+    } catch (e) {
+     
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Unable to check microphone permission: $e"),
+        ));
+      }
     }
     return false;
   }
@@ -189,7 +198,9 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   void dispose() {
     if (_isListening) {
-      _speech.stop();
+      try {
+        _speech.stop();
+      } catch (_) {}
     }
     _usernameController.dispose();
     _fromController.dispose();
@@ -202,141 +213,175 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Future<void> _listen(TextEditingController controller) async {
+   
     final ok = await _ensureMicPermission();
     if (!ok) return;
 
-    if (!_isListening) {
-      bool available = await _speech.initialize(
+   
+    bool available = false;
+    try {
+      available = await _speech.initialize(
         onStatus: (val) {
+          if (!mounted) return;
           setState(() => _lastStatus = val);
           if (val == "notListening" || val == "done") {
             setState(() => _isListening = false);
           }
         },
         onError: (err) {
+          if (!mounted) return;
           setState(() {
             _lastError = err.toString();
             _isListening = false;
           });
         },
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Speech init failed: $e"),
+        ));
+      }
+      available = false;
+    }
 
-      if (available) {
-        setState(() => _isListening = true);
+    if (available && !_isListening) {
+      setState(() => _isListening = true);
+      try {
         _speech.listen(onResult: (val) {
+          if (!mounted) return;
           setState(() {
             controller.text = val.recognizedWords;
             controller.selection = TextSelection.fromPosition(
                 TextPosition(offset: controller.text.length));
           });
         });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Speech recognition unavailable")));
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isListening = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Listen failed: $e"),
+          ));
+        }
       }
+    } else if (_isListening) {
+      try {
+        await _speech.stop();
+      } catch (_) {}
+      if (mounted) setState(() => _isListening = false);
     } else {
-      _speech.stop();
-      setState(() => _isListening = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Speech recognition unavailable")));
+      }
     }
   }
-
 
   void _onSignUp() async {
-  setState(() {
-    _languageError = null;
-    _autoValidate = AutovalidateMode.onUserInteraction;
-  });
+    setState(() {
+      _languageError = null;
+      _autoValidate = AutovalidateMode.onUserInteraction;
+    });
 
-  if (_formKey.currentState == null) return;
-  if (!_formKey.currentState!.validate()) return;
+    // Safe validate check
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-  if (_existingUsernames
-      .map((u) => u.toLowerCase())
-      .contains(_usernameController.text.trim().toLowerCase())) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Username already exists. Please choose another.")));
-    return;
-  }
+    if (_existingUsernames
+        .map((u) => u.toLowerCase())
+        .contains(_usernameController.text.trim().toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Username already exists. Please choose another.")));
+      return;
+    }
 
-  // Language check
-  String inputLang = _languageController.text.trim();
-  if (selectedLanguage == null && inputLang.isEmpty) {
-    setState(() => _languageError = "Please select a preferred language");
-    return;
-  }
+    // Language check
+    String inputLang = _languageController.text.trim();
+    if (selectedLanguage == null && inputLang.isEmpty) {
+      setState(() => _languageError = "Please select a preferred language");
+      return;
+    }
 
-  if (inputLang.contains(" ") || inputLang.contains(",")) {
-    setState(() => _languageError = "Only one language allowed");
-    return;
-  }
+    if (inputLang.contains(" ") || inputLang.contains(",")) {
+      setState(() => _languageError = "Only one language allowed");
+      return;
+    }
 
-  if (_passwordController.text != _confirmPasswordController.text) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text("Passwords do not match")));
-    return;
-  }
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Passwords do not match")));
+      return;
+    }
 
-  try {
-    UserCredential result =
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    try {
+      UserCredential result = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
-    User? user = result.user;
- 
-if (user != null && !user.emailVerified) {
-  await user.sendEmailVerification();
-}
-
-    String langName = selectedLanguage ?? _languageController.text.trim();
-    String langCode = _langCode[langName] ?? "en";
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("preferredLanguage", langCode);
-
-    if (user != null) {
-      
-      await user.sendEmailVerification();
+      User? user = result.user;
 
      
-      await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .set({
-        "username": _usernameController.text.trim(),
-        "from": _fromController.text.trim(),
-        "to": _toController.text.trim(),
-        "email": _emailController.text.trim(),
-        "preferredLanguage": langCode,
-        "createdAt": FieldValue.serverTimestamp(),
-      });
+      if (user != null && !user.emailVerified) {
+        try {
+          await user.sendEmailVerification();
+        } catch (e) {
+       
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content:
+                  Text("Failed to send verification email. You can try again later."),
+            ));
+          }
+        }
+      }
 
-      
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CheckEmailPage(email: _emailController.text.trim()),
-        ),
-      );
+      String langName = selectedLanguage ?? _languageController.text.trim();
+      String langCode = _langCode[langName] ?? "en";
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("preferredLanguage", langCode);
+
+      if (user != null) {
+        // store user in firestore
+        await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
+          "username": _usernameController.text.trim(),
+          "from": _fromController.text.trim(),
+          "to": _toController.text.trim(),
+          "email": _emailController.text.trim(),
+          "preferredLanguage": langCode,
+          "createdAt": FieldValue.serverTimestamp(),
+        });
+
+        // navigate to verification screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CheckEmailPage(email: _emailController.text.trim()),
+            ),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = "An error occurred";
+      if (e.code == "email-already-in-use") {
+        message = "This email is already registered.";
+      } else if (e.code == "invalid-email") {
+        message = "Invalid email address.";
+      } else if (e.code == "weak-password") {
+        message = "Password is too weak.";
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Unexpected error: $e")));
+      }
     }
-  } on FirebaseAuthException catch (e) {
-    String message = "An error occurred";
-    if (e.code == "email-already-in-use") {
-      message = "This email is already registered.";
-    } else if (e.code == "invalid-email") {
-      message = "Invalid email address.";
-    } else if (e.code == "weak-password") {
-      message = "Password is too weak.";
-    }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  } catch (e) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text("Unexpected error: $e")));
   }
-}
-
 
   Widget _vSpace(double h) => SizedBox(height: h);
 
@@ -349,16 +394,13 @@ if (user != null && !user.emailVerified) {
         ),
       );
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text("Sign Up"),
         backgroundColor: Colors.blue.shade700,
-        leading: IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -374,8 +416,7 @@ if (user != null && !user.emailVerified) {
             child: SingleChildScrollView(
               child: Card(
                 elevation: 15,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Form(
@@ -385,21 +426,15 @@ if (user != null && !user.emailVerified) {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _vSpace(10),
-                        Icon(Icons.person_add_alt_1,
-                            size: 90, color: Colors.blue.shade700),
+                        Icon(Icons.person_add_alt_1, size: 90, color: Colors.blue.shade700),
                         _vSpace(12),
                         Text(
                           "Create Account",
-                          style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blueGrey.shade900),
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade900),
                         ),
                         _vSpace(18),
 
-                     
                         // Username
-                   
                         _sectionTitle("Username"),
                         _vSpace(8),
                         TextFormField(
@@ -409,11 +444,8 @@ if (user != null && !user.emailVerified) {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.person),
                             suffixIcon: IconButton(
-                              icon: Icon(
-                                _isListening ? Icons.mic : Icons.mic_none,
-                                color:
-                                    _isListening ? Colors.red : Colors.blue,
-                              ),
+                              icon: Icon(_isListening ? Icons.mic : Icons.mic_none,
+                                  color: _isListening ? Colors.red : Colors.blue),
                               onPressed: () => _listen(_usernameController),
                             ),
                           ),
@@ -426,9 +458,7 @@ if (user != null && !user.emailVerified) {
                         ),
                         _vSpace(15),
 
-                      
                         // Coming From
-                    
                         _sectionTitle("Coming From"),
                         _vSpace(8),
                         Autocomplete<String>(
@@ -436,12 +466,10 @@ if (user != null && !user.emailVerified) {
                             if (text.text.isEmpty) {
                               return const Iterable<String>.empty();
                             }
-                            return _stateSuggestions.where((opt) => opt
-                                .toLowerCase()
-                                .startsWith(text.text.toLowerCase()));
+                            return _stateSuggestions.where((opt) =>
+                                opt.toLowerCase().startsWith(text.text.toLowerCase()));
                           },
-                          fieldViewBuilder: (context, fieldController,
-                              focusNode, onFieldSubmitted) {
+                          fieldViewBuilder: (context, fieldController, focusNode, onFieldSubmitted) {
                             fieldController.text = _fromController.text;
                             return TextFormField(
                               controller: fieldController,
@@ -451,22 +479,14 @@ if (user != null && !user.emailVerified) {
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.location_city),
                                 suffixIcon: IconButton(
-                                  icon: Icon(
-                                      _isListening
-                                          ? Icons.mic
-                                          : Icons.mic_none,
-                                      color: _isListening
-                                          ? Colors.red
-                                          : Colors.blue),
+                                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none,
+                                      color: _isListening ? Colors.red : Colors.blue),
                                   onPressed: () => _listen(_fromController),
                                 ),
                               ),
                               validator: (val) {
-                                if (val == null || val.trim().isEmpty)
-                                  return "Enter your origin state";
-                                if (!_stateSuggestions
-                                    .map((s) => s.toLowerCase())
-                                    .contains(val.toLowerCase())) {
+                                if (val == null || val.trim().isEmpty) return "Enter your origin state";
+                                if (!_stateSuggestions.map((s) => s.toLowerCase()).contains(val.toLowerCase())) {
                                   return "Select a valid state from list";
                                 }
                                 return null;
@@ -479,9 +499,7 @@ if (user != null && !user.emailVerified) {
                         ),
                         _vSpace(15),
 
-                       
                         // Going To
-                    
                         _sectionTitle("Going To"),
                         _vSpace(8),
                         Autocomplete<String>(
@@ -489,12 +507,10 @@ if (user != null && !user.emailVerified) {
                             if (text.text.isEmpty) {
                               return const Iterable<String>.empty();
                             }
-                            return _stateSuggestions.where((s) => s
-                                .toLowerCase()
-                                .startsWith(text.text.toLowerCase()));
+                            return _stateSuggestions.where((s) =>
+                                s.toLowerCase().startsWith(text.text.toLowerCase()));
                           },
-                          fieldViewBuilder: (context, fieldController,
-                              focusNode, onFieldSubmitted) {
+                          fieldViewBuilder: (context, fieldController, focusNode, onFieldSubmitted) {
                             fieldController.text = _toController.text;
                             return TextFormField(
                               controller: fieldController,
@@ -504,22 +520,14 @@ if (user != null && !user.emailVerified) {
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.flight_takeoff),
                                 suffixIcon: IconButton(
-                                  icon: Icon(
-                                      _isListening
-                                          ? Icons.mic
-                                          : Icons.mic_none,
-                                      color: _isListening
-                                          ? Colors.red
-                                          : Colors.blue),
+                                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none,
+                                      color: _isListening ? Colors.red : Colors.blue),
                                   onPressed: () => _listen(_toController),
                                 ),
                               ),
                               validator: (val) {
-                                if (val == null || val.trim().isEmpty)
-                                  return "Enter your destination state";
-                                if (!_stateSuggestions
-                                    .map((s) => s.toLowerCase())
-                                    .contains(val.toLowerCase())) {
+                                if (val == null || val.trim().isEmpty) return "Enter your destination state";
+                                if (!_stateSuggestions.map((s) => s.toLowerCase()).contains(val.toLowerCase())) {
                                   return "Select a valid state from list";
                                 }
                                 return null;
@@ -532,9 +540,7 @@ if (user != null && !user.emailVerified) {
                         ),
                         _vSpace(15),
 
-                       
                         // Email
-                    
                         _sectionTitle("Email"),
                         _vSpace(8),
                         TextFormField(
@@ -546,20 +552,15 @@ if (user != null && !user.emailVerified) {
                             prefixIcon: Icon(Icons.email),
                           ),
                           validator: (val) {
-                            if (val == null || val.trim().isEmpty)
-                              return "Enter email";
-                            final pattern =
-                                r'^[\w\.-]+@([\w-]+\.)+[a-zA-Z]{2,4}$';
-                            if (!RegExp(pattern).hasMatch(val.trim()))
-                              return "Enter valid email";
+                            if (val == null || val.trim().isEmpty) return "Enter email";
+                            final pattern = r'^[\w\.-]+@([\w-]+\.)+[a-zA-Z]{2,4}$';
+                            if (!RegExp(pattern).hasMatch(val.trim())) return "Enter valid email";
                             return null;
                           },
                         ),
                         _vSpace(15),
 
-                    
                         // Password and Confirm
-                   
                         _sectionTitle("Password"),
                         _vSpace(8),
                         TextFormField(
@@ -573,11 +574,8 @@ if (user != null && !user.emailVerified) {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: Icon(_obscurePassword
-                                      ? Icons.visibility
-                                      : Icons.visibility_off),
-                                  onPressed: () => setState(() =>
-                                      _obscurePassword = !_obscurePassword),
+                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                 ),
                                 IconButton(
                                   icon: Icon(Icons.refresh),
@@ -585,7 +583,7 @@ if (user != null && !user.emailVerified) {
                                   onPressed: () {
                                     final pwd = generatePassword(10);
                                     setState(() {
-                                    _passwordController.text = pwd;
+                                      _passwordController.text = pwd;
                                       _confirmPasswordController.text = pwd;
                                     });
                                   },
@@ -615,13 +613,8 @@ if (user != null && !user.emailVerified) {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                              onPressed: () => setState(() => _obscureConfirmPassword =
-                                  !_obscureConfirmPassword),
+                              icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                             ),
                           ),
                           validator: (val) {
@@ -636,9 +629,7 @@ if (user != null && !user.emailVerified) {
                         ),
                         _vSpace(15),
 
-                
                         // Preferred Language
-                  
                         _sectionTitle("Preferred Language"),
                         _vSpace(8),
                         DropdownButtonFormField<String>(
@@ -661,10 +652,7 @@ if (user != null && !user.emailVerified) {
                           ),
                         ),
                         _vSpace(8),
-                        Text(
-                          "Or type a language:",
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
+                        Text("Or type a language:", style: TextStyle(color: Colors.grey[700])),
                         _vSpace(8),
                         TextFormField(
                           controller: _languageController,
@@ -672,10 +660,7 @@ if (user != null && !user.emailVerified) {
                             labelText: "Custom Language",
                             border: OutlineInputBorder(),
                             suffixIcon: IconButton(
-                              icon: Icon(
-                                _isListening ? Icons.mic : Icons.mic_none,
-                                color: _isListening ? Colors.red : Colors.blue,
-                              ),
+                              icon: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : Colors.blue),
                               onPressed: () => _listen(_languageController),
                             ),
                           ),
@@ -683,16 +668,11 @@ if (user != null && !user.emailVerified) {
                         if (_languageError != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 5),
-                            child: Text(
-                              _languageError!,
-                              style: TextStyle(color: Colors.red),
-                            ),
+                            child: Text(_languageError!, style: TextStyle(color: Colors.red)),
                           ),
                         _vSpace(25),
 
-                   
                         // Sign Up Button
-                  
                         ElevatedButton(
                           onPressed: _onSignUp,
                           style: ElevatedButton.styleFrom(
@@ -702,16 +682,11 @@ if (user != null && !user.emailVerified) {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(
-                            "Sign Up",
-                            style: TextStyle(fontSize: 18),
-                          ),
+                          child: Text("Sign Up", style: TextStyle(fontSize: 18)),
                         ),
                         _vSpace(20),
 
-                    
                         // Already account?
-                  
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -720,8 +695,7 @@ if (user != null && !user.emailVerified) {
                               onPressed: () {
                                 Navigator.pushReplacement(
                                   context,
-                                  MaterialPageRoute(
-                                      builder: (context) => LoginPage()),
+                                  MaterialPageRoute(builder: (context) => LoginPage()),
                                 );
                               },
                               child: Text("Login"),
@@ -741,6 +715,7 @@ if (user != null && !user.emailVerified) {
     );
   }
 }
+
 class CheckEmailPage extends StatelessWidget {
   final String email;
   CheckEmailPage({required this.email});
@@ -767,8 +742,7 @@ class CheckEmailPage extends StatelessWidget {
               ),
               SizedBox(height: 30),
               ElevatedButton(
-                onPressed: () => Navigator.pushReplacement(
-                    context, MaterialPageRoute(builder: (_) => LoginPage())),
+                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage())),
                 child: Text("Back to Login"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade700,
@@ -782,8 +756,3 @@ class CheckEmailPage extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
