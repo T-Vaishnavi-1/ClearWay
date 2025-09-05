@@ -20,7 +20,7 @@ class _SettlingPageState extends State<SettlingPage> {
   final List<Map<String, dynamic>> settlingItems = [
     {
       "title": "Identification",
-      "key": "identification",
+      "key": "Identification",
       "icon": Icons.badge
     },
     {
