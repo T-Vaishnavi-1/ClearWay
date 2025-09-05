@@ -97,7 +97,7 @@ S. Vaishnavi Sree (Backend)
 - US Data Management – Backend logic to fetch and manage US-specific data for states.
 - JSON File Creation – Collected and structured US data into JSON format.
 - Subpages Functionality – Backend support for dynamically loading content and applying the UI format to all subpages.f
-- GitHub Repository - source code management, collaboration, and version tracking.
+- Translation Service - Worked on translation service
 - Testing – Backend testing to ensure proper functionality, data handling, and reliability of all modules.
 - Firebase Connections – Integrating the app with Firebase services.
 
@@ -115,7 +115,6 @@ Varshini (Front-end)
 - Signup -Developed signup functionality with username,password,email input fields with proper regexs including validation.
 - Login Page - Designed and implemented a secure and user-friendly login screen with validations.
 - Testing – Front-end testing to ensure proper layout, responsiveness, and user interactions.
--	GitHub Repository – Source code management, collaboration, and version tracking.
 -	README File – Detailed project description, features, screenshots, and individual contributions.
   
 ## Overview
