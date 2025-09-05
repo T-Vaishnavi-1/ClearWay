@@ -44,28 +44,28 @@ ClearWay provides domain-specific guidance (legal, finance, driving, cultural, a
 ![Images/logo.jpg](Images/logo.jpg)
 
 ### Get Started:
-![Images/8.jpg](Images/8.jpg)
+![Images/1.jpg](Images/1.jpg)
 
 ### SignUp page:
-![Images/1.jpg](Images/1.jpg)
+![Images/2.jpg](Images/2.jpg)
 
 ### Login page:
 ![Images/3.jpg](Images/3.jpg)
 
 ### Home page:
-![Images/2.jpg](Images/2.jpg)
+![Images/4.jpg](Images/4.jpg)
 
 ### Sub pages:
-![Images/5.jpg](Images/5.jpg)
+![Images/6.jpg](Images/6.jpg)
 
 ### Sub page(including translations):
 ![Images/7.jpg](Images/7.jpg)
 
 ### Rules card:
-![Images/6.jpg](Images/6.jpg)
+![Images/5.jpg](Images/5.jpg)
 
 ### Edit user page:
-![Images/4.jpg](Images/4.jpg)
+![Images/8.jpg](Images/8.jpg)
 
 ## Tech flow
 ### 💻 Tech Stack
