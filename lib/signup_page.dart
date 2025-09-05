@@ -243,87 +243,100 @@ class _SignUpPageState extends State<SignUpPage> {
 
 
   void _onSignUp() async {
-    setState(() {
-      _languageError = null;
-      _autoValidate = AutovalidateMode.onUserInteraction;
-    });
+  setState(() {
+    _languageError = null;
+    _autoValidate = AutovalidateMode.onUserInteraction;
+  });
 
-    if (_formKey.currentState == null) return;
-    if (!_formKey.currentState!.validate()) return;
+  if (_formKey.currentState == null) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    if (_existingUsernames
-        .map((u) => u.toLowerCase())
-        .contains(_usernameController.text.trim().toLowerCase())) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Username already exists. Please choose another.")));
-      return;
-    }
-
-    // Language check
-    String inputLang = _languageController.text.trim();
-    if (selectedLanguage == null && inputLang.isEmpty) {
-      setState(() => _languageError = "Please select a preferred language");
-      return;
-    }
-
-    if (inputLang.contains(" ") || inputLang.contains(",")) {
-      setState(() => _languageError = "Only one language allowed");
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Passwords do not match")));
-      return;
-    }
-
-    try {
-      UserCredential result =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      User? user = result.user;
-      String langName = selectedLanguage ?? _languageController.text.trim();
-      String langCode = _langCode[langName] ?? "en";
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("preferredLanguage", langCode);
-
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection("users")
-            .doc(user.uid)
-            .set({
-          "username": _usernameController.text.trim(),
-          "from": _fromController.text.trim(),
-          "to": _toController.text.trim(),
-          "email": _emailController.text.trim(),
-          "preferredLanguage": langCode,
-          "createdAt": FieldValue.serverTimestamp(),
-        });
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => MainPage(uid: user.uid)),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String message = "An error occurred";
-      if (e.code == "email-already-in-use") {
-        message = "This email is already registered.";
-      } else if (e.code == "invalid-email") {
-        message = "Invalid email address.";
-      } else if (e.code == "weak-password") {
-        message = "Password is too weak.";
-      }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Unexpected error: $e")));
-    }
+  if (_existingUsernames
+      .map((u) => u.toLowerCase())
+      .contains(_usernameController.text.trim().toLowerCase())) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Username already exists. Please choose another.")));
+    return;
   }
+
+  // Language check
+  String inputLang = _languageController.text.trim();
+  if (selectedLanguage == null && inputLang.isEmpty) {
+    setState(() => _languageError = "Please select a preferred language");
+    return;
+  }
+
+  if (inputLang.contains(" ") || inputLang.contains(",")) {
+    setState(() => _languageError = "Only one language allowed");
+    return;
+  }
+
+  if (_passwordController.text != _confirmPasswordController.text) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text("Passwords do not match")));
+    return;
+  }
+
+  try {
+    UserCredential result =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+
+    User? user = result.user;
+   // User? user = FirebaseAuth.instance.currentUser;
+if (user != null && !user.emailVerified) {
+  await user.sendEmailVerification();
+}
+
+    String langName = selectedLanguage ?? _languageController.text.trim();
+    String langCode = _langCode[langName] ?? "en";
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("preferredLanguage", langCode);
+
+    if (user != null) {
+      // Send email verification
+      await user.sendEmailVerification();
+
+      // Store user data in Firestore
+      await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .set({
+        "username": _usernameController.text.trim(),
+        "from": _fromController.text.trim(),
+        "to": _toController.text.trim(),
+        "email": _emailController.text.trim(),
+        "preferredLanguage": langCode,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      // Navigate to a “check email” page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CheckEmailPage(email: _emailController.text.trim()),
+        ),
+      );
+    }
+  } on FirebaseAuthException catch (e) {
+    String message = "An error occurred";
+    if (e.code == "email-already-in-use") {
+      message = "This email is already registered.";
+    } else if (e.code == "invalid-email") {
+      message = "Invalid email address.";
+    } else if (e.code == "weak-password") {
+      message = "Password is too weak.";
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  } catch (e) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text("Unexpected error: $e")));
+  }
+}
 
 
   Widget _vSpace(double h) => SizedBox(height: h);
@@ -729,5 +742,49 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 }
+class CheckEmailPage extends StatelessWidget {
+  final String email;
+  CheckEmailPage({required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Verify Email"),
+        backgroundColor: Colors.blue.shade700,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.email, size: 100, color: Colors.blue.shade700),
+              SizedBox(height: 20),
+              Text(
+                "A verification link has been sent to $email.\nPlease check your inbox and verify your email before logging in.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
+              ),
+              SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: () => Navigator.pushReplacement(
+                    context, MaterialPageRoute(builder: (_) => LoginPage())),
+                child: Text("Back to Login"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  minimumSize: Size(double.infinity, 50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
 
 
