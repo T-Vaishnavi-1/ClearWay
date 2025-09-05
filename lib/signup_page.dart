@@ -40,7 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _obscureConfirmPassword = true;
   AutovalidateMode _autoValidate = AutovalidateMode.disabled;
 
-  // Language codes
+
   final Map<String, String> _langCode = {
     "English": "en",
     "Spanish": "es",
@@ -54,7 +54,6 @@ class _SignUpPageState extends State<SignUpPage> {
     "Arabic": "ar",
   };
 
-  // Languages list
   final List<String> _allLanguages = [
     "English",
     "Spanish",
@@ -68,7 +67,7 @@ class _SignUpPageState extends State<SignUpPage> {
     "Arabic"
   ];
 
-  // States list (US + India)
+ 
   final List<String> _stateSuggestions = [
     "Alabama",
     "Alaska",
@@ -150,7 +149,7 @@ class _SignUpPageState extends State<SignUpPage> {
     "West Bengal",
   ];
 
-  // Demo usernames
+ 
   final List<String> _existingUsernames = [ "user123"];
 
   String generatePassword(int length) {
@@ -285,7 +284,7 @@ class _SignUpPageState extends State<SignUpPage> {
     );
 
     User? user = result.user;
-   // User? user = FirebaseAuth.instance.currentUser;
+ 
 if (user != null && !user.emailVerified) {
   await user.sendEmailVerification();
 }
@@ -297,10 +296,10 @@ if (user != null && !user.emailVerified) {
     await prefs.setString("preferredLanguage", langCode);
 
     if (user != null) {
-      // Send email verification
+      
       await user.sendEmailVerification();
 
-      // Store user data in Firestore
+     
       await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
@@ -313,7 +312,7 @@ if (user != null && !user.emailVerified) {
         "createdAt": FieldValue.serverTimestamp(),
       });
 
-      // Navigate to a “check email” page
+      
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -559,7 +558,7 @@ if (user != null && !user.emailVerified) {
                         _vSpace(15),
 
                     
-                        // Password + Confirm
+                        // Password and Confirm
                    
                         _sectionTitle("Password"),
                         _vSpace(8),
